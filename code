@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALBUM COVER — SELECTOR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0905;
+    --surface: #111009;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.18);
+    --text: #f0ead8;
+    --text-muted: rgba(240,234,216,0.38);
+    --text-dim: rgba(240,234,216,0.18);
+    --gold: #c9a84c;
+    --gold-dim: rgba(201,168,76,0.15);
+    --red: #8b1a1a;
+    --red-bright: #c0392b;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.6;
+  }
+
+  /* scanlines */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem 4rem;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 0 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 0.8s ease forwards;
+  }
+  .header-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    letter-spacing: 0.18em;
+    color: var(--gold);
+  }
+  .header-sub {
+    font-size: 0.65rem;
+    letter-spacing: 0.22em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .header-tag {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 3rem;
+    align-items: start;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.2s ease forwards;
+  }
+
+  @media (max-width: 800px) {
+    .main { grid-template-columns: 1fr; }
+    .panel { order: -1; }
+  }
+
+  /* ── CANVAS ── */
+  .canvas-section { position: relative; }
+
+  .canvas-outer {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+
+  /* corner decorations */
+  .canvas-outer::before,
+  .canvas-outer::after {
+    content: '';
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-color: var(--gold);
+    border-style: solid;
+    z-index: 5;
+    pointer-events: none;
+    transition: width 0.3s, height 0.3s;
+  }
+  .canvas-outer::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+  .canvas-outer::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+  .canvas-outer:hover::before,
+  .canvas-outer:hover::after { width: 40px; height: 40px; }
+
+  .corner-tr, .corner-bl {
+    position: absolute;
+    width: 28px; height: 28px;
+    border-color: var(--gold);
+    border-style: solid;
+    z-index: 5;
+    pointer-events: none;
+    transition: width 0.3s, height 0.3s;
+  }
+  .corner-tr { top: -1px; right: -1px; border-width: 1px 1px 0 0; }
+  .corner-bl { bottom: -1px; left: -1px; border-width: 0 0 1px 1px; }
+  .canvas-outer:hover .corner-tr,
+  .canvas-outer:hover .corner-bl { width: 40px; height: 40px; }
+
+  .canvas-frame {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+
+  .bg-layer {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* placeholder BGs (replace src= with your actual files) */
+  .bg-red     { background-color: #1a0808; background-image: url('red.jpg'), linear-gradient(135deg,#8B1A1A 0%,#4a0000 60%,#1a0505 100%); }
+  .bg-black   { background-color: #050505; background-image: url('black.jpg'), linear-gradient(145deg,#0f0f0f 0%,#050505 50%,#000 100%); }
+  .bg-textile { background-color: #231c10; background-image: url('textile.jpg'), repeating-linear-gradient(45deg,#231c10 0px,#231c10 4px,#2e2515 4px,#2e2515 8px); }
+
+  /* vignette always on top of bg */
+  .canvas-frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.65) 100%);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .char-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* Character placeholders — FIXED position/size, never moves */
+  .char-slot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .char-og {
+    width: 58%;
+    height: 78%;
+    border: 1px solid rgba(255,255,255,0.06);
+    background-image: url('og.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    /* placeholder visual */
+    box-shadow: 0 0 60px rgba(201,168,76,0.08) inset;
+  }
+  .char-og::after {
+    content: 'og.png';
+    position: absolute;
+    bottom: 8px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.25);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .char-vaughn {
+    width: 58%;
+    height: 78%;
+    background-image: url('vaughn.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    border: 1px solid rgba(180,160,255,0.08);
+    box-shadow: 0 0 60px rgba(180,160,255,0.06) inset;
+  }
+  .char-vaughn::after {
+    content: 'vaughn.png';
+    position: absolute;
+    bottom: 8px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.25);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .char-text {
+    width: 80%;
+    height: auto;
+    background-image: url('text.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    min-height: 20%;
+  }
+  .char-text::after {
+    content: 'text.png';
+    position: absolute;
+    bottom: -20px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.25);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .char-opps {
+    width: 66%;
+    height: 66%;
+    background-image: url('opps.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: 1px solid rgba(255,80,80,0.08);
+    border-radius: 50%;
+    box-shadow: 0 0 80px rgba(200,0,0,0.06) inset;
+  }
+  .char-opps::after {
+    content: 'opps.png';
+    position: absolute;
+    bottom: -20px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.25);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* hidden = invisible but still takes space (keeps layout) */
+  .char-slot.hidden { opacity: 0; }
+
+  /* Arrow nav */
+  .nav-arrows {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1.25rem;
+  }
+  .nav-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0.55rem 1.2rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-dim);
+  }
+  .nav-btn svg { width: 14px; height: 14px; }
+
+  /* bg dots */
+  .dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--border-hover);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .dot.active {
+    background: var(--gold);
+    box-shadow: 0 0 6px var(--gold);
+  }
+
+  /* current combo badge */
+  .combo-badge {
+    margin-top: 1.25rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .combo-badge span {
+    color: var(--text);
+    font-size: 0.7rem;
+  }
+
+  /* ── SIDE PANEL ── */
+  .panel { display: flex; flex-direction: column; gap: 2rem; padding-top: 0.5rem; }
+
+  .ctrl-block { border-top: 1px solid var(--border); padding-top: 1.25rem; }
+
+  .ctrl-heading {
+    font-size: 0.58rem;
+    letter-spacing: 0.28em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .pill-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pill {
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    padding: 0.45rem 0.9rem;
+    transition: all 0.18s;
+    position: relative;
+    overflow: hidden;
+  }
+  .pill::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gold-dim);
+    opacity: 0;
+    transition: opacity 0.18s;
+  }
+  .pill:hover { border-color: var(--border-hover); color: var(--text); }
+  .pill:hover::before { opacity: 1; }
+  .pill.active {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-dim);
+  }
+
+  /* ── SAVED PICKS ── */
+  .saves-block { border-top: 1px solid var(--border); padding-top: 1.25rem; }
+
+  .save-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .save-btn {
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    transition: all 0.18s;
+    flex: 1;
+  }
+  .save-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-dim);
+    cursor: pointer;
+  }
+
+  .saved-items { display: flex; flex-direction: column; gap: 4px; }
+
+  .saved-row {
+    display: flex;
+    align-items: center;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border);
+    gap: 8px;
+    transition: border-color 0.18s;
+    cursor: pointer;
+    position: relative;
+  }
+  .saved-row:hover { border-color: var(--border-hover); }
+  .saved-row.winner { border-color: var(--gold); }
+  .saved-row.winner::after {
+    content: '★';
+    position: absolute;
+    right: 8px;
+    color: var(--gold);
+    font-size: 10px;
+  }
+
+  .saved-num {
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    min-width: 16px;
+  }
+  .saved-combo {
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    flex: 1;
+  }
+  .saved-combo strong { color: var(--text); font-weight: 500; }
+  .saved-actions { display: flex; gap: 6px; }
+
+  .tiny-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    padding: 2px 7px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tiny-btn:hover { border-color: var(--border-hover); color: var(--text-muted); }
+  .tiny-btn.star-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .tiny-btn.del-btn:hover { border-color: rgba(200,60,60,0.5); color: rgba(200,60,60,0.8); }
+
+  .empty-note {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    font-style: italic;
+    padding: 0.5rem 0;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.5s ease forwards;
+  }
+  .footer-text {
+    font-size: 0.58rem;
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .footer-italic {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+
+  /* ── TRANSITIONS ── */
+  .bg-layer { will-change: opacity; }
+  .char-slot { will-change: opacity; transition: opacity 0.35s ease; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* flash on save */
+  @keyframes flashGold {
+    0%   { box-shadow: 0 0 0 0 rgba(201,168,76,0); }
+    30%  { box-shadow: 0 0 0 6px rgba(201,168,76,0.25); }
+    100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); }
+  }
+  .flash { animation: flashGold 0.6s ease; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div>
+      <div class="header-title">Cover Selector</div>
+      <div class="header-sub">Album Art — Final Pick Tool</div>
+    </div>
+    <div class="header-tag">
+      BG ×3 &nbsp;/&nbsp; CHAR ×4<br>
+      12 combinations
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- LEFT: Canvas -->
+    <div class="canvas-section">
+      <div class="canvas-outer" id="canvasOuter">
+        <div class="corner-tr"></div>
+        <div class="corner-bl"></div>
+        <div class="canvas-frame" id="canvasFrame">
+
+          <!-- Background layers (all present, opacity toggled) -->
+          <div class="bg-layer bg-red"     id="bg-red"     style="opacity:1"></div>
+          <div class="bg-layer bg-black"   id="bg-black"   style="opacity:0"></div>
+          <div class="bg-layer bg-textile" id="bg-textile" style="opacity:0"></div>
+
+          <!-- Character layer (fixed center, swap visibility) -->
+          <div class="char-layer">
+            <div class="char-slot char-og"     id="char-og"></div>
+            <div class="char-slot char-vaughn  hidden" id="char-vaughn"></div>
+            <div class="char-slot char-text    hidden" id="char-text"></div>
+            <div class="char-slot char-opps    hidden" id="char-opps"></div>
+          </div>
+
+        </div><!-- /canvas-frame -->
+      </div><!-- /canvas-outer -->
+
+      <!-- Navigation -->
+      <div class="nav-arrows">
+        <button class="nav-btn" id="bgPrev">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 19l-7-7 7-7"/></svg>
+          prev bg
+        </button>
+        <div class="dots" id="bgDots"></div>
+        <button class="nav-btn" id="bgNext">
+          next bg
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+
+      <div class="combo-badge">
+        current — <span id="comboText">red.jpg + og.png</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: Controls -->
+    <div class="panel">
+
+      <div class="ctrl-block">
+        <div class="ctrl-heading">Background</div>
+        <div class="pill-grid" id="bgPills"></div>
+      </div>
+
+      <div class="ctrl-block">
+        <div class="ctrl-heading">Character Layer</div>
+        <div class="pill-grid" id="charPills"></div>
+      </div>
+
+      <div class="saves-block">
+        <div class="ctrl-heading">Saved Picks</div>
+        <div class="save-action">
+          <button class="save-btn" id="saveBtn">+ save this combo</button>
+        </div>
+        <div class="saved-items" id="savedItems">
+          <div class="empty-note" id="emptyNote">no picks saved yet</div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /main -->
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-text">place your image files in the same folder as index.html</div>
+    <div class="footer-italic">final pick</div>
+  </footer>
+
+</div><!-- /page -->
+
+<script>
+  const BG = [
+    { id: 'red',     label: 'red.jpg' },
+    { id: 'black',   label: 'black.jpg' },
+    { id: 'textile', label: 'textile.jpg' },
+  ];
+  const CHAR = [
+    { id: 'og',     label: 'og.png' },
+    { id: 'vaughn', label: 'vaughn.png' },
+    { id: 'text',   label: 'text.png' },
+    { id: 'opps',   label: 'opps.png' },
+  ];
+
+  let bgIdx = 0, charIdx = 0;
+  let saved = [];
+
+  // ── BUILD PILLS ──
+  BG.forEach((b, i) => {
+    const p = document.createElement('button');
+    p.className = 'pill' + (i === 0 ? ' active' : '');
+    p.textContent = b.label;
+    p.dataset.i = i;
+    p.onclick = () => setBg(i);
+    document.getElementById('bgPills').appendChild(p);
+
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => setBg(i);
+    document.getElementById('bgDots').appendChild(d);
+  });
+
+  CHAR.forEach((c, i) => {
+    const p = document.createElement('button');
+    p.className = 'pill' + (i === 0 ? ' active' : '');
+    p.textContent = c.label;
+    p.dataset.i = i;
+    p.onclick = () => setChar(i);
+    document.getElementById('charPills').appendChild(p);
+  });
+
+  // ── SET BG ──
+  function setBg(i) {
+    bgIdx = i;
+    BG.forEach((b, idx) => {
+      document.getElementById('bg-' + b.id).style.opacity = idx === i ? '1' : '0';
+    });
+    document.querySelectorAll('#bgPills .pill').forEach((p, idx) => p.classList.toggle('active', idx === i));
+    document.querySelectorAll('#bgDots .dot').forEach((d, idx) => d.classList.toggle('active', idx === i));
+    updateCombo();
+  }
+
+  // ── SET CHAR ──
+  function setChar(i) {
+    charIdx = i;
+    CHAR.forEach((c, idx) => {
+      const el = document.getElementById('char-' + c.id);
+      if (idx === i) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    document.querySelectorAll('#charPills .pill').forEach((p, idx) => p.classList.toggle('active', idx === i));
+    updateCombo();
+  }
+
+  // ── COMBO LABEL ──
+  function updateCombo() {
+    document.getElementById('comboText').textContent =
+      BG[bgIdx].label + ' + ' + CHAR[charIdx].label;
+  }
+
+  // ── ARROW NAV (bg only) ──
+  document.getElementById('bgPrev').onclick = () => setBg((bgIdx - 1 + BG.length) % BG.length);
+  document.getElementById('bgNext').onclick = () => setBg((bgIdx + 1) % BG.length);
+
+  // ── KEYBOARD NAV ──
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft')  setBg((bgIdx - 1 + BG.length) % BG.length);
+    if (e.key === 'ArrowRight') setBg((bgIdx + 1) % BG.length);
+    if (e.key === 'ArrowUp')    setChar((charIdx - 1 + CHAR.length) % CHAR.length);
+    if (e.key === 'ArrowDown')  setChar((charIdx + 1) % CHAR.length);
+  });
+
+  // ── SAVE ──
+  document.getElementById('saveBtn').onclick = () => {
+    const key = BG[bgIdx].id + '+' + CHAR[charIdx].id;
+    if (saved.find(s => s.key === key)) return;
+    saved.push({ key, bg: BG[bgIdx].label, char: CHAR[charIdx].label, winner: false });
+    renderSaved();
+    // flash canvas
+    const f = document.getElementById('canvasFrame');
+    f.classList.remove('flash');
+    void f.offsetWidth;
+    f.classList.add('flash');
+  };
+
+  // ── RENDER SAVED ──
+  function renderSaved() {
+    const container = document.getElementById('savedItems');
+    const note = document.getElementById('emptyNote');
+    container.innerHTML = '';
+    if (!saved.length) {
+      container.appendChild(note);
+      return;
+    }
+    saved.forEach((s, i) => {
+      const row = document.createElement('div');
+      row.className = 'saved-row' + (s.winner ? ' winner' : '');
+
+      row.innerHTML = `
+        <span class="saved-num">${String(i + 1).padStart(2, '0')}</span>
+        <span class="saved-combo"><strong>${s.bg}</strong> + <strong>${s.char}</strong></span>
+        <div class="saved-actions">
+          <button class="tiny-btn star-btn" title="Mark as winner">★</button>
+          <button class="tiny-btn" title="Load">↑</button>
+          <button class="tiny-btn del-btn" title="Remove">✕</button>
+        </div>`;
+
+      row.querySelector('.tiny-btn.star-btn').onclick = (e) => {
+        e.stopPropagation();
+        saved.forEach(x => x.winner = false);
+        s.winner = true;
+        renderSaved();
+      };
+      row.querySelector('.tiny-btn:not(.star-btn):not(.del-btn)').onclick = (e) => {
+        e.stopPropagation();
+        const bIdx = BG.findIndex(b => b.label === s.bg);
+        const cIdx = CHAR.findIndex(c => c.label === s.char);
+        if (bIdx >= 0) setBg(bIdx);
+        if (cIdx >= 0) setChar(cIdx);
+      };
+      row.querySelector('.tiny-btn.del-btn').onclick = (e) => {
+        e.stopPropagation();
+        saved.splice(i, 1);
+        renderSaved();
+      };
+      row.onclick = () => {
+        const bIdx = BG.findIndex(b => b.label === s.bg);
+        const cIdx = CHAR.findIndex(c => c.label === s.char);
+        if (bIdx >= 0) setBg(bIdx);
+        if (cIdx >= 0) setChar(cIdx);
+      };
+
+      container.appendChild(row);
+    });
+  }
+
+  // init
+  setChar(0);
+  updateCombo();
+</script>
+</body>
+</html>
