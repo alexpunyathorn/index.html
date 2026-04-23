@@ -762,16 +762,12 @@
   setChar(0);
   updateCombo();
 
-  const music = document.getElementById('bgMusic');
+  const music = ('bgMusic');
   music.volume = 0.4;
   document.addEventListener('click', () => {
     music.play();
   }, { once: true });
-
-  // ── INIT ──
-  setChar(0);
-  updateCombo();
+ 
 </script>
-
 </body>
 </html>
