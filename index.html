@@ -762,11 +762,10 @@
   setChar(0);
   updateCombo();
 
-  const music = ('bgMusic');
+  // Audio Control
+  const music = document.getElementById('bgMusic');
   music.volume = 0.4;
-  document.addEventListener('click', () => {
-    music.play();
-  }, { once: true });
+  document.addEventListener('click', () => { music.play(); }, { once: true });
  
 </script>
 </body>
