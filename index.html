@@ -768,20 +768,18 @@
 <audio id="bgMusic" loop>
   <source src="your-music-file.mp3" type="audio/mpeg">
   Your browser does not support the audio element.
-</audio>
+
  const music = document.getElementById('bgMusic');
 
-// ตั้งค่าความดัง 40% (ค่าอยู่ในช่วง 0.0 ถึง 1.0)
 music.volume = 0.4;
 
-// ฟังก์ชันเริ่มเล่นเพลง (Browser มักจะบล็อกการเล่นอัตโนมัติ)
-// เราเลยจะดักจับการคลิกครั้งแรกของ User เพื่อเริ่มเพลง
 document.addEventListener('click', () => {
     music.play();
-}, { once: true }); // ให้ทำงานแค่ครั้งเดียวตอนคลิกครั้งแรก
+}, { once: true });
   // init
   setChar(0);
   updateCombo();
+</audio>
 </script>
 </body>
 </html>
